@@ -1,0 +1,191 @@
+version: '3'
+services:
+
+  clickhouse:
+    image: docker.io/bitnami/clickhouse:23
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - CLICKHOUSE_ADMIN_PASSWORD=password
+    depends_on:
+      - minio
+    ports:
+      - '8123:8123'
+    volumes:
+      - ./clickhouse:/bitnami/clickhouse
+    networks:
+      - scrap
+
+  selenoid:
+    image: "aerokube/selenoid:1.10.10"
+    networks:
+      - selenoid
+      - scrap
+    ports:
+      - "4444:4444"
+    volumes:
+      - "./selenoid/:/etc/selenoid/" # assumed current dir contains browsers.json
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./selenoid/logs/:/opt/selenoid/logs"
+    command: ["-conf", "/etc/selenoid/browsers.json", "-video-output-dir", "/opt/selenoid/video", "-log-output-dir", "/opt/selenoid/logs", "-container-network", "selenoid"]
+
+  selenoid-ui:
+    image: "aerokube/selenoid-ui:1.10.9"
+    networks:
+      - selenoid
+      - scrap
+    ports:
+      - "8080:8080"
+    command: ["--selenoid-uri", "http://selenoid:4444"]
+
+  firefox_110.0:
+    image: "selenoid/vnc_firefox:110.0"
+    container_name: firefox_110.0
+    networks:
+      - selenoid
+      - scrap
+    depends_on:
+      - selenoid
+
+  scrap:
+    image: "scrap"
+    build: ./scrapper
+    depends_on:
+      - selenoid
+      - selenoid-ui
+      - firefox_110.0
+      - minio
+    networks:
+      - scrap
+    environment:
+      HOST: minio
+      PORT: 9000
+      ACCESS_KEY: <access_key>
+      SECRET_KEY: <secret_key>
+      SECURE: FALSE
+
+  minio:
+    image: minio/minio:RELEASE.2023-02-27T18-10-45Z
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - "./minio/data:/data"
+    networks:
+      - scrap
+    environment:
+      MINIO_ROOT_USER: ROOTUSER
+      MINIO_ROOT_PASSWORD: Strong#Pass#123
+    command: server --console-address ":9001" /data
+
+  spark-master:
+    image: spark
+    build: ./spark
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+      - "4040:4040"
+    networks:
+      - scrap
+
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+      - ./spark/script:/opt/bitnami/spark/script
+    environment:
+      - SPARK_LOCAL_IP=spark-master
+      - SPARK_MODE=master
+      - RAW_PATH=real-estate/realtor
+      - SILVER_PATH=data-lake/silver/real-estate
+      - GOLD_PATH=data-lake/gold/real-estate
+      - AWS_SECRET_KEY=<secret_key>
+      - AWS_ACCESS_KEY=<access_key>
+
+
+  spark-worker-a:
+    image: spark
+    build: ./spark
+    ports:
+      - "9091:8080"
+      - "7000:7000"
+    networks:
+      - scrap
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_DRIVER_MEMORY=1G
+      - SPARK_EXECUTOR_MEMORY=1G
+      - SPARK_MODE=worker
+      - SPARK_LOCAL_IP=spark-worker-a
+      - AWS_SECRET_KEY=<secret_key>
+      - AWS_ACCESS_KEY=<access_key>
+
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+
+
+  spark-worker-b:
+    image: spark
+    build: ./spark
+    ports:
+      - "9092:8080"
+      - "7001:7000"
+    networks:
+      - scrap
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=2
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_DRIVER_MEMORY=1G
+      - SPARK_EXECUTOR_MEMORY=1G
+      - SPARK_MODE=worker
+      - SPARK_LOCAL_IP=spark-worker-b
+      - AWS_SECRET_KEY=<secret_key>
+      - AWS_ACCESS_KEY=<access_key>
+
+    volumes:
+      - ./spark/spark-defaults.conf:/opt/bitnami/spark/conf/spark-defaults.conf
+
+  redis:
+    image: redis:7
+    container_name: superset_cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - scrap
+
+  db:
+    env_file: ./superset/.env
+    image: postgres:14
+    container_name: superset_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    networks:
+      - scrap
+
+  superset:
+    depends_on:
+      - db
+    env_file: ./superset/.env
+    image: superset
+    build: ./superset
+    ports:
+      - 8888:8088
+    networks:
+      - scrap
+
+networks:
+  selenoid:
+    name: selenoid
+
+  scrap:
+
+
+
+
+
