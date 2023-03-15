@@ -6,7 +6,7 @@ A data scraping procedure was created for this purpose, and the data processing 
 
 # Data Architecture
 
-![](/home/yokota/projects/real-estate/data architecture.svg)
+![](./data architecture.svg)
 
 # Proposal
 
@@ -123,5 +123,5 @@ To create Chart you need add the dataset the table real_estate.ny
 
 Example of dashboard
 
-![](/home/yokota/projects/real-estate/superset.png)
+![](./superset.png)
 
