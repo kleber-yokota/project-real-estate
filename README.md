@@ -6,7 +6,8 @@ A data scraping procedure was created for this purpose, and the data processing 
 
 # Data Architecture
 
-![svg](data architecture.svg)
+![Untitled Diagram](https://user-images.githubusercontent.com/121385152/225403460-94c2a14e-bb06-4a33-aff2-40b2ad582547.jpg)
+
 
 # Proposal
 
@@ -29,7 +30,9 @@ The data that was saved during the data scraping process was processed using Spa
 
 The silver layer is where we first type the data and do some minor adjustments before extracting information such as the unit, street name, zipcode, and other details since they are all contained in a single string.
 
+
 Using the href of the property detail as the unique key, delete duplicate data from the golden layer.
+
 
 The complete process is done with Spark using Pyspark.
 
