@@ -6,7 +6,7 @@ A data scraping procedure was created for this purpose, and the data processing 
 
 # Data Architecture
 
-![svg](./data architecture.svg)
+![svg](data architecture.svg)
 
 # Proposal
 
